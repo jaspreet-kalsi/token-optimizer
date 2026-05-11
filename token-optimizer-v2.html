@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Optimizer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #07080a;
+    --card:      #0f1115;
+    --surface:   #161a20;
+    --border:    #1f252f;
+    --border-hi: #2a3340;
+    --text:      #9ba8bb;
+    --text-hi:   #dce6f5;
+    --dim:       #3d4a5c;
+    --green:     #0dffaa;
+    --green-bg:  rgba(13,255,170,.08);
+    --green-glow:rgba(13,255,170,.22);
+    --amber:     #ffbe30;
+    --red:       #ff4560;
+    --blue:      #4da8ff;
+    --mono:      'JetBrains Mono', monospace;
+    --display:   'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: var(--mono);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 20px 48px;
+    /* Subtle grid bg */
+    background-image:
+      linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px),
+      radial-gradient(ellipse 70% 40% at 15% -10%, rgba(13,255,170,.05) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 30% at 85% 110%, rgba(77,168,255,.04) 0%, transparent 60%);
+    background-size: 40px 40px, 40px 40px, 100% 100%, 100% 100%;
+  }
+
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .hdr {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 12px;
+    animation: rise .5s ease both;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(20px, 3vw, 28px);
+    color: var(--text-hi);
+    letter-spacing: -.02em;
+    line-height: 1;
+  }
+
+  .logo em {
+    font-style: normal;
+    color: var(--green);
+    text-shadow: 0 0 24px var(--green-glow);
+  }
+
+  .tag {
+    font-size: 9px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--green);
+    border: 1px solid rgba(13,255,170,.3);
+    padding: 3px 8px 3px 9px;
+    border-radius: 2px;
+    margin-left: 14px;
+    vertical-align: middle;
+    position: relative;
+    top: -4px;
+  }
+
+  .hdr-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* ── Controls ── */
+  .pill-group {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .pill-group button {
+    background: none;
+    border: none;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all .15s;
+    border-right: 1px solid var(--border);
+  }
+
+  .pill-group button:last-child { border-right: none; }
+
+  .pill-group button.on {
+    color: var(--green);
+    background: var(--green-bg);
+  }
+
+  .pill-group button:hover:not(.on) {
+    color: var(--text);
+    background: rgba(255,255,255,.025);
+  }
+
+  .mdl-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0 14px;
+    position: relative;
+  }
+
+  .mdl-select::after {
+    content: '▾';
+    color: var(--dim);
+    font-size: 10px;
+    pointer-events: none;
+  }
+
+  .mdl-label {
+    font-size: 9px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+
+  select {
+    background: none;
+    border: none;
+    color: var(--text-hi);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 9px 0;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  option { background: #12151b; }
+
+  /* ── Editor ── */
+  .editors {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+    animation: rise .5s .08s ease both;
+  }
+
+  @media (max-width: 620px) { .editors { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+
+  .panel:focus-within { border-color: var(--border-hi); }
+
+  .panel-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+
+  .panel-name {
+    font-size: 9px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .tok-chip {
+    font-size: 10px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    transition: all .25s;
+  }
+
+  .tok-chip.lit {
+    background: var(--green-bg);
+    border-color: rgba(13,255,170,.25);
+    color: var(--green);
+  }
+
+  textarea {
+    flex: 1;
+    min-height: 230px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    color: var(--text-hi);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.75;
+    padding: 16px;
+    caret-color: var(--green);
+  }
+
+  textarea::placeholder { color: var(--dim); opacity: .5; }
+
+  .out-body {
+    flex: 1;
+    min-height: 230px;
+    padding: 16px;
+    font-size: 12px;
+    line-height: 1.75;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-y: auto;
+  }
+
+  .empty-hint {
+    color: var(--dim);
+    opacity: .45;
+  }
+
+  .empty-hint::after {
+    content: '█';
+    animation: blink 1s step-end infinite;
+    color: var(--green);
+    margin-left: 1px;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── Stats ── */
+  .stats {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    animation: rise .5s .14s ease both;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 80px;
+  }
+
+  .stat-lbl {
+    font-size: 9px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .stat-val {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--text-hi);
+    line-height: 1;
+    transition: color .3s;
+  }
+
+  .stat-val.g { color: var(--green); text-shadow: 0 0 20px var(--green-glow); }
+  .stat-val.a { color: var(--amber); }
+  .stat-val.r { color: var(--red); }
+
+  .mem-wrap {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .mem-head {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 7px;
+  }
+
+  .mem-lbl {
+    font-size: 9px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .mem-pct {
+    font-size: 10px;
+    color: var(--text);
+    transition: color .3s;
+  }
+
+  .mem-track {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .mem-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--green);
+    border-radius: 2px;
+    transition: width .4s cubic-bezier(.22,.68,0,1.2), background .3s;
+    box-shadow: 0 0 8px var(--green-glow);
+  }
+
+  .mem-bar.w { background: var(--amber); box-shadow: none; }
+  .mem-bar.d { background: var(--red);   box-shadow: none; }
+
+  /* ── Footer row ── */
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    animation: rise .5s .2s ease both;
+  }
+
+  .foot-hint {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: .06em;
+  }
+
+  .copy-btn {
+    background: var(--green-bg);
+    border: 1px solid rgba(13,255,170,.3);
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+
+  .copy-btn:hover {
+    background: rgba(13,255,170,.15);
+    box-shadow: 0 0 18px var(--green-glow);
+  }
+
+  .copy-btn.ok {
+    color: var(--text-hi);
+    background: rgba(13,255,170,.2);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="logo">
+      Token<em>_</em>Optimizer
+      <span class="tag">v2</span>
+    </div>
+    <div class="hdr-right">
+      <div class="pill-group" id="modeGroup">
+        <button class="on" onclick="setMode('text')">Text</button>
+        <button onclick="setMode('code')">Code</button>
+        <button onclick="setMode('aggressive')">Aggressive</button>
+      </div>
+      <div class="mdl-select">
+        <span class="mdl-label">Model</span>
+        <select id="model" onchange="run()">
+          <option value="200000">Claude · 200k</option>
+          <option value="128000" selected>GPT-4 / Gemini · 128k</option>
+          <option value="2000000">Gemini 1.5 Pro · 2M</option>
+          <option value="32000">GPT-3.5 / Mixtral · 32k</option>
+          <option value="8000">Llama 3 · 8k</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editors -->
+  <div class="editors">
+    <div class="panel">
+      <div class="panel-bar">
+        <span class="panel-name">Input</span>
+        <span class="tok-chip" id="inChip">0 tokens</span>
+      </div>
+      <textarea id="inp" placeholder="Paste your text or code..." oninput="run()"></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-bar">
+        <span class="panel-name">Optimized Output</span>
+        <span class="tok-chip" id="outChip">0 tokens</span>
+      </div>
+      <div class="out-body" id="out"><span class="empty-hint">Output appears here</span></div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-lbl">Saved</span>
+      <span class="stat-val g" id="sSaved">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-lbl">In</span>
+      <span class="stat-val" id="sIn">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-lbl">Out</span>
+      <span class="stat-val" id="sOut">—</span>
+    </div>
+    <div class="mem-wrap">
+      <div class="mem-head">
+        <span class="mem-lbl">Context Window</span>
+        <span class="mem-pct" id="memPct">0%</span>
+      </div>
+      <div class="mem-track"><div class="mem-bar" id="memBar"></div></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="foot">
+    <span class="foot-hint">// paste · optimize · copy &nbsp;|&nbsp; mode: <span id="modeLbl">TEXT</span></span>
+    <button class="copy-btn" id="copyBtn" onclick="doCopy()">Copy Output</button>
+  </div>
+
+</div>
+
+<script>
+  let mode = 'text';
+
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll('#modeGroup button').forEach((b,i) => {
+      b.classList.toggle('on', ['text','code','aggressive'][i] === m);
+    });
+    document.getElementById('modeLbl').textContent = m.toUpperCase();
+    run();
+  }
+
+  function tok(s) { return Math.ceil(s.length / 4); }
+
+  function fmt(n) {
+    if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+    if (n >= 1e3) return (n/1e3).toFixed(1)+'k';
+    return String(n);
+  }
+
+  const TEXT_RULES = [
+    [/\s+/g, ' '],
+    [/[!?]{2,}/g, m => m[0]],
+    // Verbose request phrases → 'Please'
+    [/\bI was wondering if you could\b/gi, 'Please'],
+    [/\bWould you be able to\b/gi, 'Please'],
+    [/\bCould you possibly\b/gi, 'Please'],
+    [/\bI would like (you )?to( ask you to)?( please)?\b/gi, 'Please '],
+    // Wordy connectors
+    [/\bIn order to\b/gi, 'To'],
+    [/\bat this point in time\b/gi, 'now'],
+    [/\bat the present time\b/gi, 'now'],
+    [/\bdue to the fact that\b/gi, 'because'],
+    [/\bin the event that\b/gi, 'if'],
+    [/\bfor the purpose of\b/gi, 'for'],
+    [/\bthe fact that\b/gi, 'that'],
+    // Notes — consume trailing punctuation to prevent doubled labels
+    [/\b(please note that|it is important to note that)\b[:.]?\s*/gi, 'Note: '],
+    // Summary — consume trailing colon to prevent Summary::
+    [/\b(in conclusion|to summarize|to sum up)\b[:.]?\s*/gi, 'Summary: '],
+    // Dedup any chained labels that sneak through
+    [/\bNote:\s+Note:\s*/gi, 'Note: '],
+    [/\bSummary:\s+Summary:\s*/gi, 'Summary: '],
+    // Clean up stray double spaces
+    [/  +/g, ' '],
+  ];
+
+  const CODE_RULES = [
+    [/\/\/[^\n]*/g, ''],
+    [/\/\*[\s\S]*?\*\//g, ''],
+    [/#[^\n]*/g, ''],
+    [/^\s+/gm, m => ' '.repeat(Math.max(0, Math.ceil(m.replace(/\t/g,'    ').length / 4)))],
+    [/\n{2,}/g, '\n'],
+  ];
+
+  function applyRules(s, rules) {
+    for (const [re, rep] of rules) s = s.replace(re, rep);
+    return s.trim();
+  }
+
+  function run() {
+    const raw = document.getElementById('inp').value;
+    const out = document.getElementById('out');
+
+    if (!raw) {
+      out.innerHTML = '<span class="empty-hint">Output appears here</span>';
+      clearStats(); return;
+    }
+
+    let res = raw;
+    if (mode === 'text') {
+      res = applyRules(res, TEXT_RULES);
+    } else if (mode === 'code') {
+      res = applyRules(res, CODE_RULES);
+    } else {
+      // CODE_RULES must run first — stripping comments before TEXT_RULES
+      // collapses newlines, which would cause // to consume entire merged lines
+      res = applyRules(res, [...CODE_RULES, ...TEXT_RULES]);
+      res = res.replace(/[ \t]+/g, ' ').trim();
+    }
+
+    out.textContent = res;
+
+    const limit = parseInt(document.getElementById('model').value);
+    const iT = tok(raw), oT = tok(res);
+    const save = iT > 0 ? Math.max(0, Math.round((iT - oT) / iT * 100)) : 0;
+    const pct  = (oT / limit) * 100;
+
+    document.getElementById('inChip').textContent  = fmt(iT) + ' tokens';
+    document.getElementById('outChip').textContent = fmt(oT) + ' tokens';
+    document.getElementById('outChip').classList.toggle('lit', oT > 0);
+
+    const sv = document.getElementById('sSaved');
+    sv.textContent = save + '%';
+    sv.className = 'stat-val ' + (save > 15 ? 'g' : save > 0 ? 'a' : 'r');
+
+    document.getElementById('sIn').textContent  = fmt(iT);
+    document.getElementById('sOut').textContent = fmt(oT);
+
+    const bar = document.getElementById('memBar');
+    bar.style.width = Math.min(pct, 100) + '%';
+    bar.className = 'mem-bar' + (pct > 90 ? ' d' : pct > 70 ? ' w' : '');
+
+    const pctEl = document.getElementById('memPct');
+    pctEl.textContent = pct.toFixed(2) + '%';
+    pctEl.style.color = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--amber)' : 'var(--text)';
+  }
+
+  function clearStats() {
+    ['sSaved','sIn','sOut'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('inChip').textContent  = '0 tokens';
+    document.getElementById('outChip').textContent = '0 tokens';
+    document.getElementById('outChip').classList.remove('lit');
+    document.getElementById('memBar').style.width  = '0%';
+    document.getElementById('memPct').textContent  = '0%';
+    document.getElementById('sSaved').className    = 'stat-val g';
+  }
+
+  function doCopy() {
+    const txt = document.getElementById('out').textContent;
+    if (!txt || txt.includes('Output appears here')) return;
+    navigator.clipboard.writeText(txt).then(() => {
+      const b = document.getElementById('copyBtn');
+      b.textContent = 'Copied ✓';
+      b.classList.add('ok');
+      setTimeout(() => { b.textContent = 'Copy Output'; b.classList.remove('ok'); }, 1800);
+    });
+  }
+</script>
+</body>
+</html>
